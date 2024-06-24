@@ -1,0 +1,97 @@
+{
+        debug
+        order rate_limit before basicauth
+
+        #cert_issuer  acme https://acme-v02.api.letsencrypt.org/directory
+        #
+        #cert_issuer  acme https://acme-v02.api.letsencrypt.org/directory
+        cert_issuer zerossl XXXXXXXXXXXXXXXXXX
+        cert_issuer acme https://acme-v02.api.letsencrypt.org/directory
+        # Use Let's Encrypt or ZeroSSL to sign certificates.
+        log {
+                output file /var/log/caddy/server.log {
+                        roll_size 100mb
+                        roll_keep 15
+                        roll_keep_for 480h
+                }
+        }
+
+        email contactus@mydomain.com
+
+        storage redis {
+                host "primary-redis.mydomain.com"
+                port 6379
+                address "primary-redis.mydomain.com:6379"
+                username ""
+                password "monk"
+                db 7
+                key_prefix "caddytls"
+                value_prefix "caddy-storage-redis"
+                timeout 60
+                tls_enabled "false"
+                tls_insecure "true"
+        }
+
+        on_demand_tls {
+                ask http://domain-validator.mydomain.com/px-validate
+        }
+
+        renew_interval 55d
+        #ocsp_interval 1d
+}
+
+domain-validator.mydomain.com:80 {
+header {
+Content-Type application/json
+}
+   respond / 200 {
+        body "{\"endpoint\": \"{host}\"}"
+    }
+}
+
+*.mydomain.com:80 {
+        header / {
+                -Server
+        }
+
+}
+
+http:// {
+        redir https://{host}{uri} permanent
+}
+
+:443 {
+        header / {
+                -Server
+        }
+   # Set this path to your site's directory.
+        root * /usr/share/caddy
+
+        # Enable the static file server.
+        file_server
+
+
+        log {
+                output file /var/log/caddy/wildcard_access.log {
+                        roll_size 100mb
+                        roll_keep 20
+                        roll_keep_for 480h
+                }
+
+       }
+
+       
+        tls {
+                                on_demand
+        }
+
+
+        rate_limit {
+                zone dynamic_example {
+                        key {remote_host}
+                        events 600
+                        window 1m
+                        jitter 2.0
+     }
+        }
+}
